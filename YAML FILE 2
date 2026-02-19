@@ -1,0 +1,43 @@
+name: CI
+
+on: [push, workflow_dispatch]
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+    - name: Download ngrok
+      run: |
+        Invoke-WebRequest https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-windows-amd64.zip -OutFile ngrok.zip
+    
+    - name: Extract ngrok
+      run: |
+        Expand-Archive ngrok.zip
+        
+    - name: Auth ngrok
+      run: .\ngrok\ngrok.exe authtoken ${{ secrets.NGROK_AUTH_TOKEN }}
+
+    - name: Enable Remote Desktop
+      run: |
+        # Fixed spacing for -name parameter
+        Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -name "fDenyTSConnections" -Value 0
+        Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
+        Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -name "UserAuthentication" -Value 1
+        
+    - name: Set Password
+      run: |
+        $Password = ConvertTo-SecureString "P@ssw0rd1234!" -AsPlainText -Force
+        Set-LocalUser -Name "runneradmin" -Password $Password
+
+    - name: Create US Tunnel
+      run: |
+        # Added '--region us' to force United States servers
+        Start-Process .\ngrok\ngrok.exe -ArgumentList "tcp --region us 3389"
+        echo "RDP is starting in the US region..."
+        
+    - name: Keep Alive
+      # This step prevents the workflow from finishing and closing the tunnel immediately
+      run: |
+        Write-Host "RDP address can be found in your ngrok dashboard (https://dashboard.ngrok.com/tunnels/agents)"
+        while($true) { Start-Sleep -Seconds 60 }
