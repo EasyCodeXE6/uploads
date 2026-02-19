@@ -1,0 +1,19 @@
+name: RDP-Playit
+on: workflow_dispatch
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+    - name: Download Playit
+      run: Invoke-WebRequest -Uri "https://github.com/playit-cloud/playit-agent/releases/latest/download/playit-windows-x86_64.exe" -OutFile "playit.exe"
+    - name: Enable RDP
+      run: |
+        Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -name "fDenyTSConnections" -Value 0
+        Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
+        Set-LocalUser -Name "runneradmin" -Password (ConvertTo-SecureString "P@ssw0rd1234!" -AsPlainText -Force)
+    - name: Start Tunnel
+      env:
+        PLAYIT_SECRET: ${{ secrets.PLAYIT_SECRET }}
+      run: Start-Process .\playit.exe -ArgumentList "--secret $env:PLAYIT_SECRET"
+    - name: Keep Alive
+      run: while($true){ Write-Host "Active..."; Start-Sleep -Seconds 60 }
