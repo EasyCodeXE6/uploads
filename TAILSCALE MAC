@@ -1,0 +1,21 @@
+name: RDP-Tailscale-Mac
+on: workflow_dispatch
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+    - name: Enable RDP
+      run: |
+        Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -name "fDenyTSConnections" -Value 0
+        Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
+        Set-LocalUser -Name "runneradmin" -Password (ConvertTo-SecureString "P@ssw0rd1234!" -AsPlainText -Force)
+    
+    - name: Tailscale Connection
+      uses: tailscale/github-action@v2
+      with:
+        authkey: ${{ secrets.TAILSCALE_AUTH_KEY }}
+
+    - name: Keep Alive
+      run: |
+        Write-Host "Check your Tailscale App on Mac for the IP address."
+        while($true){ Start-Sleep -Seconds 60 }
