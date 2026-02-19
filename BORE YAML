@@ -1,0 +1,20 @@
+name: RDP-Bore-US
+on: workflow_dispatch
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+    - name: Setup RDP & Bore
+      run: |
+        Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -name "fDenyTSConnections" -Value 0
+        Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
+        Set-LocalUser -Name "runneradmin" -Password (ConvertTo-SecureString "P@ssw0rd1234!" -AsPlainText -Force)
+        Invoke-WebRequest -Uri "https://github.com/ekzhang/bore/releases/download/v0.5.0/bore-v0.5.0-x86_64-pc-windows-msvc.zip" -OutFile "bore.zip"
+        Expand-Archive bore.zip -DestinationPath .
+    - name: Start Tunnel
+      run: |
+        Start-Process .\bore.exe -ArgumentList "local 3389 --to bore.pub" -RedirectStandardOutput "bore.log"
+        Start-Sleep -Seconds 10
+        Get-Content "bore.log" | Select-String "listening at"
+    - name: Keep Alive
+      run: while($true){ Start-Sleep -Seconds 60 }
