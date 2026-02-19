@@ -1,0 +1,21 @@
+name: RDP-ZeroTier-US
+on: workflow_dispatch
+jobs:
+  build:
+    runs-on: windows-latest # GitHub hosts these in US Data Centers
+    steps:
+    - name: Enable Windows RDP
+      run: |
+        Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -name "fDenyTSConnections" -Value 0
+        Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
+        Set-LocalUser -Name "runneradmin" -Password (ConvertTo-SecureString "P@ssw0rd1234!" -AsPlainText -Force)
+    - name: Install & Join ZeroTier
+      run: |
+        Invoke-WebRequest -Uri "https://download.zerotier.com/dist/ZeroTier%20One.msi" -OutFile "ZeroTier.msi"
+        Start-Process msiexec.exe -ArgumentList "/i ZeroTier.msi /qn" -Wait
+        Start-Sleep -Seconds 10
+        & "C:\Program Files (x86)\ZeroTier\One\zerotier-one_x64.exe" -q join ${{ secrets.ZEROTIER_NETWORK_ID }}
+    - name: Keep Alive
+      run: |
+        Write-Host "Connect to the Managed IP shown in your ZeroTier Dashboard."
+        while($true){ Start-Sleep -Seconds 60 }
