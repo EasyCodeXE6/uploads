@@ -1,0 +1,16 @@
+name: RDP-Pinggy
+on: workflow_dispatch
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+    - name: Enable RDP
+      run: |
+        Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -name "fDenyTSConnections" -Value 0
+        Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
+        Set-LocalUser -Name "runneradmin" -Password (ConvertTo-SecureString "P@ssw0rd1234!" -AsPlainText -Force)
+    - name: Start SSH Tunnel
+      run: |
+        Write-Host "Connect to the address shown below:"
+        # This starts the tunnel and shows the URL in the logs
+        ssh -p 443 -o StrictHostKeyChecking=no -R0:localhost:3389 tcp@free.pinggy.io
