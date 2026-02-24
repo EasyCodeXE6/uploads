@@ -1,4 +1,4 @@
-name: RDP-ZeroTier-Residential
+name: RDP-ZeroTier-US
 on: workflow_dispatch
 
 jobs:
