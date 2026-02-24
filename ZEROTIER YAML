@@ -1,21 +1,55 @@
-name: RDP-ZeroTier-US
+name: RDP-ZeroTier-Residential
 on: workflow_dispatch
+
 jobs:
   build:
-    runs-on: windows-latest # GitHub hosts these in US Data Centers
+    runs-on: windows-2022
     steps:
     - name: Enable Windows RDP
       run: |
         Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -name "fDenyTSConnections" -Value 0
         Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
-        Set-LocalUser -Name "runneradmin" -Password (ConvertTo-SecureString "P@ssw0rd1234!" -AsPlainText -Force)
+        Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -name "UserAuthentication" -Value 1
+        $Password = ConvertTo-SecureString "P@ssw0rd1234!" -AsPlainText -Force
+        Set-LocalUser -Name "runneradmin" -Password $Password
+
     - name: Install & Join ZeroTier
+      shell: powershell
       run: |
+        # 1. Download and Install ZeroTier
         Invoke-WebRequest -Uri "https://download.zerotier.com/dist/ZeroTier%20One.msi" -OutFile "ZeroTier.msi"
         Start-Process msiexec.exe -ArgumentList "/i ZeroTier.msi /qn" -Wait
+        
+        $cliPath = "C:\Program Files (x86)\ZeroTier\One\zerotier-cli.bat"
+        while (!(Test-Path $cliPath)) { Start-Sleep -Seconds 5 }
+
+        # 2. Join Network
+        cmd /c "`"$cliPath`" join ${{ secrets.ZEROTIER_NETWORK_ID }}"
         Start-Sleep -Seconds 10
-        & "C:\Program Files (x86)\ZeroTier\One\zerotier-one_x64.exe" -q join ${{ secrets.ZEROTIER_NETWORK_ID }}
-    - name: Keep Alive
+
+        # 3. CONFIGURE FOR RESIDENTIAL EXIT NODE
+        # This tells the runner to allow its internet traffic to be routed through your ZeroTier network
+        cmd /c "`"$cliPath`" set ${{ secrets.ZEROTIER_NETWORK_ID }} allowDefault=1"
+        
+        Write-Host "Joined and configured for Default Route. Please authorize in ZeroTier Dashboard."
+
+    - name: Display Status and IP
+      shell: powershell
       run: |
-        Write-Host "Connect to the Managed IP shown in your ZeroTier Dashboard."
-        while($true){ Start-Sleep -Seconds 60 }
+        $cliPath = "C:\Program Files (x86)\ZeroTier\One\zerotier-cli.bat"
+        Start-Sleep -Seconds 20
+        Write-Host "--- ZeroTier Stats ---"
+        cmd /c "`"$cliPath`" listnetworks"
+        Write-Host "--- Public IP Check (Should show Residential IP after Dashboard Config) ---"
+        try {
+          $ip = Invoke-RestMethod -Uri "https://api.ipify.org?format=json"
+          Write-Host "Current Public IP: $($ip.ip)"
+        } catch {
+          Write-Host "Routing not yet established or blocked."
+        }
+
+    - name: Keep Alive Loop
+      run: |
+        Write-Host "RDP Active. User: runneradmin | Pass: P@ssw0rd1234!"
+        $i = 0
+        while($i -lt 360) { Start-Sleep -Seconds 60; $i++ }
